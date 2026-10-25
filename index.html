@@ -155,6 +155,7 @@ body:not(.show) .float{display:none}
       <button class="btn primary" id="btnRight">Слово названо верно</button>
       <button class="btn" id="btnWrong">Слово названо неверно</button>
       <button class="btn" id="btnSkip">Передать ход</button>
+      <button class="btn primary" id="btnNext2" hidden>Следующее слово</button>
     </div>
   </main>
 
@@ -274,7 +275,7 @@ const times = n => n === 1 ? '1 раз' : (n >= 2 && n <= 4 ? n + ' раза' : 
 let words = [], cur = -1, opened = new Set(), hits = new Set(), misses = new Set();
 let solved = false, played = new Set(), spin = 0, sourceName = 'встроенный список';
 let players = [{ name: 'Игрок 1', score: 0 }, { name: 'Игрок 2', score: 0 }, { name: 'Игрок 3', score: 0 }];
-let pi = 0;
+let pi = 0, winTimer = 0, rafId = 0;
 
 function parseWords(text) {
   const out = [];
@@ -429,11 +430,18 @@ function updateNote() {
     : 'На табло только номер и число букв. Описание видно ведущему в блоке «Загадано».';
 }
 
+function syncActions() {
+  ['btnRight', 'btnWrong', 'btnSkip'].forEach(id => { $(id).hidden = solved; });
+  $('btnNext2').hidden = !solved;
+}
+
 function selectWord(i) {
+  clearTimeout(winTimer); cancelAnimationFrame(rafId);
+  $('confetti').getContext('2d').clearRect(0, 0, $('confetti').width, $('confetti').height);
   cur = i; opened = new Set(); hits = new Set(); misses = new Set(); solved = false;
   $('modal').hidden = true;
   say('Назовите букву.', '');
-  renderBoard(); renderKbd(); renderQuestion(); renderSecret(); renderList();
+  renderBoard(); renderKbd(); renderQuestion(); renderSecret(); renderList(); syncActions();
 }
 
 function nextPlayer() { pi = (pi + 1) % players.length; renderStrip(); }
@@ -483,9 +491,10 @@ function guessWrong() {
 }
 
 function win() {
-  solved = true; played.add(cur); renderKbd(); renderList();
+  solved = true; played.add(cur); renderKbd(); renderList(); syncActions();
   const p = players[pi], w = words[cur];
-  setTimeout(() => {
+  clearTimeout(winTimer);
+  winTimer = setTimeout(() => {
     $('winTitle').textContent = 'Поздравляем, ' + (p.name || 'игрок') + '!';
     $('winWord').textContent = w.word;
     $('winDesc').textContent = w.desc;
@@ -518,6 +527,7 @@ function setWords(list, name) {
 
 function confetti() {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  cancelAnimationFrame(rafId);
   const c = $('confetti'), x = c.getContext('2d');
   c.width = innerWidth; c.height = innerHeight;
   const cols = ['#f5b800', '#fff6dc', '#47d49a', '#ff7a7a', '#6aa8ff'];
@@ -535,7 +545,7 @@ function confetti() {
       p.x += p.vx; p.y += p.vy; p.r += p.vr;
       x.save(); x.translate(p.x, p.y); x.rotate(p.r); x.fillStyle = p.col; x.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); x.restore();
     });
-    if (++frames < 260) requestAnimationFrame(loop); else x.clearRect(0, 0, c.width, c.height);
+    if (++frames < 260) rafId = requestAnimationFrame(loop); else x.clearRect(0, 0, c.width, c.height);
   })();
 }
 
@@ -545,6 +555,8 @@ $('btnWrong').onclick = guessWrong;
 $('btnSkip').onclick = () => { if (!solved) { nextPlayer(); say('Ход: ' + (players[pi].name || 'следующий игрок'), ''); } };
 $('btnRandom').onclick = randomWord;
 $('btnNext').onclick = nextWord;
+$('btnNext2').onclick = nextWord;
+$('modal').onclick = e => { if (e.target === $('modal')) $('modal').hidden = true; };
 $('btnClose').onclick = () => { $('modal').hidden = true; };
 $('pcount').onchange = e => setPlayerCount(+e.target.value);
 $('btnAddP').onclick = () => { if (players.length < 8) setPlayerCount(players.length + 1); };
