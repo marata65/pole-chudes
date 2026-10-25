@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Поле чудес</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&family=Russo+One&display=swap">
+<style>
+/* Layout: studio board and letter keyboard on the left, host console on the right; "show mode" hides the console. */
+:root{
+  --navy:#0a1f45;
+  --blue:#0f2f66;
+  --blue-2:#17408a;
+  --gold:#f5b800;
+  --gold-d:#c98d00;
+  --paper:#fff6dc;
+  --ink:#f3efe2;
+  --muted:#9fb6dc;
+  --ok:#47d49a;
+  --bad:#ff7a7a;
+  --bg:#0a1f45;
+  --f-display:"Russo One","Arial Black",Impact,sans-serif;
+  --f-body:"PT Sans","Segoe UI",Arial,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:auto}
+body{
+  background:radial-gradient(1200px 600px at 30% -10%,#1b4a9c 0%,transparent 60%),var(--bg);
+  background-color:var(--bg);
+  color:var(--ink);
+  font:16px/1.45 var(--f-body);
+  padding-block:16px 32px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  min-height:100vh;
+}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+
+.app{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;max-width:1280px;margin:0 auto;align-items:start}
+body.show .app{grid-template-columns:minmax(0,1fr)}
+body.show .console{display:none}
+.stage{min-width:0;display:flex;flex-direction:column;gap:18px}
+
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:12px}
+.brand h1{font:400 clamp(1.6rem,3.4vw,2.4rem)/1 var(--f-display);margin:0;letter-spacing:.04em;text-transform:uppercase;color:var(--gold)}
+.drum{width:40px;height:40px;border-radius:50%;flex:none;border:3px solid var(--paper);
+  background:repeating-conic-gradient(var(--gold) 0 22.5deg,var(--blue-2) 0 45deg);
+  transition:transform 1s cubic-bezier(.2,.8,.2,1)}
+.players{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:flex;align-items:baseline;gap:8px;padding:6px 14px;border:2px solid var(--blue-2);background:var(--blue);border-radius:999px;color:var(--ink)}
+.chip b{font:400 1.1rem var(--f-display);font-variant-numeric:tabular-nums;color:var(--gold)}
+.chip.cur{border-color:var(--gold);background:var(--blue-2);box-shadow:0 0 0 3px rgba(245,184,0,.25)}
+
+.board-wrap{background:linear-gradient(180deg,var(--blue),var(--navy));border:2px solid var(--blue-2);border-radius:14px;padding:clamp(14px,3vw,28px);display:flex;flex-direction:column;gap:20px}
+.q{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;font-size:clamp(1.05rem,2.2vw,1.45rem);line-height:1.35;min-height:2.7em}
+.q .num{font:400 .8rem var(--f-display);letter-spacing:.12em;text-transform:uppercase;color:var(--gold);display:block;margin-bottom:4px}
+.q .txt{min-width:0;overflow-wrap:anywhere}
+.board{--t:56px;display:flex;flex-wrap:wrap;justify-content:center;gap:calc(var(--t)*.5) calc(var(--t)*.55);padding:6px 0}
+.group{display:flex;gap:6px}
+.tile{width:var(--t);height:calc(var(--t)*1.28);perspective:600px;flex:none}
+.tile .in{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .6s;transition-delay:var(--d,0s)}
+.tile.open .in{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:6px;display:grid;place-items:center}
+.front{background:linear-gradient(155deg,#ffd23d,var(--gold) 55%,var(--gold-d));box-shadow:inset 0 -4px 0 rgba(0,0,0,.18),0 2px 0 rgba(0,0,0,.35)}
+.back{transform:rotateY(180deg);background:var(--paper);color:var(--navy);font:400 calc(var(--t)*.7)/1 var(--f-display);box-shadow:0 2px 0 rgba(0,0,0,.35)}
+.dash{width:calc(var(--t)*.5);height:calc(var(--t)*1.28);display:grid;place-items:center;font:400 calc(var(--t)*.7)/1 var(--f-display);color:var(--paper)}
+.msg{min-height:1.6em;text-align:center;font-weight:700;font-size:1.05rem;color:var(--muted)}
+.msg.ok{color:var(--ok)}.msg.bad{color:var(--bad)}
+
+.kbd{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;max-width:820px;margin:0 auto}
+.key{width:clamp(38px,5.4vw,56px);height:clamp(42px,5.8vw,60px);border-radius:8px;border:2px solid var(--blue-2);background:var(--blue);font:400 clamp(1rem,2.2vw,1.4rem) var(--f-display);transition:transform .08s,background .15s}
+.key:hover:not(:disabled){background:var(--blue-2);transform:translateY(-2px)}
+.key.hit{background:var(--ok);border-color:var(--ok);color:var(--navy)}
+.key.miss{opacity:.35;text-decoration:line-through}
+.key:disabled{cursor:default}
+
+.actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.btn{padding:10px 18px;border-radius:8px;border:2px solid var(--blue-2);background:var(--blue);font-weight:700}
+.btn:hover{background:var(--blue-2)}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:var(--navy)}
+.btn.primary:hover{background:#ffcb2e}
+.btn.small{padding:6px 12px;font-size:.9rem}
+.btn:disabled{opacity:.4;cursor:default}
+
+.console{min-width:0;background:var(--blue);border:2px solid var(--blue-2);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:16px;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto}
+.console h2{font:400 .8rem var(--f-display);letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:0 0 8px}
+.secret{background:var(--navy);border:2px dashed var(--gold-d);border-radius:10px;padding:12px}
+.secret .w{font:400 1.5rem/1.15 var(--f-display);letter-spacing:.06em;overflow-wrap:anywhere}
+.secret .d{margin-top:6px;color:var(--muted);font-size:.95rem}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.check{display:flex;gap:10px;align-items:center;cursor:pointer;font-weight:700}
+.check input{width:20px;height:20px;accent-color:var(--gold)}
+.wl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:260px;overflow:auto}
+.wl button{width:100%;text-align:left;display:flex;gap:10px;align-items:baseline;padding:6px 10px;border-radius:6px;border:1px solid transparent;background:transparent}
+.wl button:hover{background:var(--blue-2)}
+.wl .n{font:400 .85rem var(--f-display);color:var(--gold);min-width:2.2ch;font-variant-numeric:tabular-nums}
+.wl .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wl .cur button{border-color:var(--gold);background:var(--blue-2)}
+.wl .done button{opacity:.45}
+.wl .done .t{text-decoration:line-through}
+.pl{display:flex;flex-direction:column;gap:6px}
+.pl .p{display:flex;gap:6px}
+.pl input{flex:1;min-width:0;background:var(--navy);border:2px solid var(--blue-2);border-radius:8px;padding:6px 10px}
+.pl button{width:36px;border-radius:8px;border:2px solid var(--blue-2);background:var(--navy)}
+.sel{background:var(--navy);border:2px solid var(--blue-2);border-radius:8px;padding:6px 10px;color:var(--ink)}
+.note{color:var(--muted);font-size:.85rem}
+.file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+.float{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:5}
+body:not(.show) .float{display:none}
+
+.modal{position:fixed;inset:0;z-index:20;background:rgba(5,14,35,.82);display:grid;place-items:center;padding:16px}
+.card{width:min(560px,100%);background:linear-gradient(180deg,#ffd23d,var(--gold));color:var(--navy);border-radius:18px;padding:clamp(20px,4vw,36px);text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
+.card .kick{font:400 .85rem var(--f-display);letter-spacing:.16em;text-transform:uppercase;opacity:.75}
+.card h2{font:400 clamp(1.9rem,6vw,3rem)/1.05 var(--f-display);margin:8px 0 14px;overflow-wrap:anywhere;text-wrap:balance}
+.card .word{display:inline-block;background:var(--navy);color:var(--paper);font:400 clamp(1.2rem,4vw,1.8rem) var(--f-display);letter-spacing:.08em;padding:8px 16px;border-radius:8px;overflow-wrap:anywhere}
+.card p{margin:12px 0 0}
+.card .score{font:400 1.2rem var(--f-display);margin-top:10px}
+.card .row{justify-content:center;margin-top:20px}
+.card .btn{border-color:var(--navy);background:transparent;color:var(--navy)}
+.card .btn.primary{background:var(--navy);color:var(--paper)}
+#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:30}
+@keyframes pop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+
+@media (max-width:940px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .console{position:static;max-height:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .tile .in,.drum{transition:none}
+  .card{animation:none}
+}
+</style>
+
+</head><body>
+<div class="app">
+  <main class="stage">
+    <header class="top">
+      <div class="brand"><span class="drum" id="drum" aria-hidden="true"></span><h1>Поле чудес</h1></div>
+      <div class="players" id="strip" aria-label="Игроки"></div>
+    </header>
+
+    <section class="board-wrap">
+      <div class="q" id="question"></div>
+      <div class="board" id="board" aria-label="Табло"></div>
+      <div class="msg" id="msg" role="status"></div>
+    </section>
+
+    <section class="kbd" id="kbd" aria-label="Буквы"></section>
+
+    <div class="actions">
+      <button class="btn primary" id="btnRight">Слово названо верно</button>
+      <button class="btn" id="btnWrong">Слово названо неверно</button>
+      <button class="btn" id="btnSkip">Передать ход</button>
+    </div>
+  </main>
+
+  <aside class="console" id="console" aria-label="Панель ведущего">
+    <div>
+      <h2>Загадано (видит ведущий)</h2>
+      <div class="secret" id="secret"></div>
+    </div>
+
+    <div>
+      <h2>Описание</h2>
+      <label class="check" for="readDesc"><input type="checkbox" id="readDesc" checked> Зачитывать описание</label>
+      <p class="note" id="readNote"></p>
+    </div>
+
+    <div>
+      <h2>Слова</h2>
+      <div class="row" style="margin-bottom:8px">
+        <button class="btn small" id="btnRandom">Случайное слово</button>
+        <label class="btn small" for="fileIn" id="fileBtn" tabindex="0" role="button">Загрузить свой файл слов</label>
+        <input class="file" type="file" id="fileIn" accept=".txt,.csv,text/plain">
+      </div>
+      <p class="note" id="fileNote"></p>
+      <ul class="wl" id="wl"></ul>
+    </div>
+
+    <div>
+      <h2>Игроки</h2>
+      <div class="row" style="margin-bottom:8px">
+        <label for="pcount" style="font-weight:700">Количество игроков</label>
+        <select id="pcount" class="sel"></select>
+      </div>
+      <div class="pl" id="pl"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn small" id="btnAddP">Добавить игрока</button>
+        <button class="btn small" id="btnReset">Обнулить очки</button>
+      </div>
+    </div>
+
+    <button class="btn" id="btnShow">Режим показа (скрыть панель)</button>
+    <p class="note">Игрок называет букву — нажмите её на экране или на клавиатуре. Вместо Ё используйте Е.</p>
+  </aside>
+</div>
+
+<button class="btn float" id="btnHost">Панель ведущего</button>
+
+<div class="modal" id="modal" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div class="kick">Слово угадано</div>
+    <h2 id="winTitle"></h2>
+    <div class="word" id="winWord"></div>
+    <p id="winDesc"></p>
+    <div class="score" id="winScore"></div>
+    <div class="row">
+      <button class="btn primary" id="btnNext">Следующее слово</button>
+      <button class="btn" id="btnClose">Закрыть</button>
+    </div>
+  </div>
+</div>
+<canvas id="confetti"></canvas>
+
+<script>
+const DEFAULT_TEXT = `# ПОЛЕ ЧУДЕС — файл слов для ведущего
+# Формат строки:  номер | СЛОВО | описание (вопрос, который ведущий зачитывает или не зачитывает)
+# Строки, начинающиеся с #, игра пропускает. Слово пишется заглавными буквами, допустимы пробел и дефис.
+# Свой файл можно загрузить в игре кнопкой «Загрузить свой файл слов».
+
+1|ГАЛАКТИКА|Огромная система из звёзд, газа и пыли. Наша называется Млечный Путь.
+2|САМОВАР|Русский прибор для кипячения воды, вокруг которого пьют чай.
+3|МАТРЁШКА|Деревянная игрушка, внутри которой прячутся такие же, только поменьше.
+4|ПАРАШЮТ|Купол из ткани, который замедляет падение человека с высоты.
+5|ТЕЛЕСКОП|Прибор, с помощью которого астрономы разглядывают далёкие звёзды.
+6|ЧЕМОДАН|Без него не обойтись, если собрался в дальнюю дорогу.
+7|ВЕЛОСИПЕД|Двухколёсный транспорт, который едет на силе ваших ног.
+8|АРБУЗ|Огромная зелёная ягода с красной сладкой мякотью и косточками.
+9|КРОКОДИЛ|Хищная рептилия из рек Африки. Герой сказки Корнея Чуковского.
+10|ЛАБИРИНТ|Запутанная система ходов, из которой трудно найти выход.
+11|МАЯК|Башня на берегу, свет которой указывает кораблям путь.
+12|ВУЛКАН|Гора, из жерла которой извергаются лава и пепел.
+13|БИБЛИОТЕКА|Место, где хранятся книги и выдаются почитать.
+14|ХРУСТАЛЬ|Прозрачный блестящий материал, из которого делают дорогие вазы и бокалы.
+15|КОМПАС|Стрелка этого прибора всегда показывает на север.
+16|ОРКЕСТР|Большой коллектив музыкантов, которым управляет дирижёр.
+17|ПОДСОЛНУХ|Жёлтый цветок, который поворачивается за солнцем. Из его семечек делают масло.
+18|СНЕГОВИК|Зимняя фигура из трёх комьев с морковкой вместо носа.
+19|КАЛЕЙДОСКОП|Трубка с цветными стёклышками, которые складываются в узоры.
+20|ЭКСКАВАТОР|Строительная машина с большим ковшом для земляных работ.
+21|ПЛАНЕТАРИЙ|Здание с куполом, где показывают звёздное небо в любую погоду.
+22|ЛОКОМОТИВ|Тянет за собой вагоны поезда.
+23|ВИНЕГРЕТ|Салат из варёной свёклы, картофеля, моркови и квашеной капусты.
+24|ЖИРАФ|Самое высокое животное на Земле, у него очень длинная шея.
+25|АКВАРИУМ|Стеклянный дом для золотых рыбок.
+26|МОРОЖЕНОЕ|Холодное лакомство, которое особенно любят летом.
+27|ФОНАРИК|Карманный источник света, нужен в темноте.
+28|ГЛОБУС|Модель Земли в виде шара.
+29|ЧЕБУРАШКА|Герой мультфильма с большими ушами, друг крокодила Гены.
+30|ЗАПОВЕДНИК|Территория, где охраняют природу и редких животных.
+31|ЛЕДОКОЛ|Корабль, который прокладывает путь во льдах.
+32|ШАХМАТЫ|Игра с ладьями, слонами и ферзём на доске из 64 клеток.
+33|БАЛАЛАЙКА|Русский народный инструмент с треугольным корпусом и тремя струнами.
+34|МЕТЕОРИТ|Космический камень, упавший на Землю.
+35|ЯБЛОКО|Фрукт, который, по легенде, упал на голову Ньютону.
+36|ГИТАРА|Струнный инструмент, с которым поют песни у костра.
+37|ЧЁРНАЯ ДЫРА|Область космоса с такой силой притяжения, что из неё не выходит даже свет.
+38|СОЛНЕЧНЫЕ ЧАСЫ|Древний способ узнать время по тени от палочки.
+39|ВОЗДУШНЫЙ ШАР|Летает благодаря тёплому воздуху внутри, а пассажиры сидят в корзине.
+40|ЖЕЛЕЗНАЯ ДОРОГА|Рельсы и шпалы, по которым ходят поезда.
+`;
+
+const ALPHA = 'АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'.split('');
+const LAT = "qwertyuiop[]asdfghjkl;'zxcvbnm,.";
+const CYR = 'йцукенгшщзхъфывапролджэячсмитьбю';
+const $ = id => document.getElementById(id);
+const norm = c => { c = c.toUpperCase(); return c === 'Ё' ? 'Е' : c; };
+const times = n => n === 1 ? '1 раз' : (n >= 2 && n <= 4 ? n + ' раза' : n + ' раз');
+
+let words = [], cur = -1, opened = new Set(), hits = new Set(), misses = new Set();
+let solved = false, played = new Set(), spin = 0, sourceName = 'встроенный список';
+let players = [{ name: 'Игрок 1', score: 0 }, { name: 'Игрок 2', score: 0 }, { name: 'Игрок 3', score: 0 }];
+let pi = 0;
+
+function parseWords(text) {
+  const out = [];
+  text.replace(/^﻿/, '').split(/\r?\n/).forEach(line => {
+    line = line.trim();
+    if (!line || line[0] === '#') return;
+    const sep = line.includes('|') ? '|' : (line.includes('\t') ? '\t' : ';');
+    const p = line.split(sep).map(s => s.trim());
+    let num = null;
+    if (/^\d+$/.test(p[0])) num = +p.shift();
+    const word = (p.shift() || '').toUpperCase().replace(/\s+/g, ' ');
+    if (!/^[А-ЯЁ]+([ -][А-ЯЁ]+)*$/.test(word)) return;
+    out.push({ n: num == null ? out.length + 1 : num, word, desc: p.join(sep).trim() });
+  });
+  return out;
+}
+
+function say(text, kind) { const m = $('msg'); m.textContent = text || ''; m.className = 'msg ' + (kind || ''); }
+
+function renderStrip() {
+  $('strip').innerHTML = '';
+  players.forEach((p, i) => {
+    const c = document.createElement('div');
+    c.className = 'chip' + (i === pi ? ' cur' : '');
+    const s = document.createElement('span'); s.textContent = p.name || 'Игрок';
+    const b = document.createElement('b'); b.textContent = p.score;
+    c.append(s, b);
+    c.onclick = () => { pi = i; renderStrip(); };
+    $('strip').append(c);
+  });
+}
+
+function setPlayerCount(n) {
+  while (players.length < n) players.push({ name: 'Игрок ' + (players.length + 1), score: 0 });
+  if (players.length > n) players.length = n;
+  if (pi >= players.length) pi = 0;
+  renderPlayersPanel(); renderStrip();
+}
+
+function renderPlayersPanel() {
+  const sel = $('pcount');
+  if (!sel.options.length) for (let i = 1; i <= 8; i++) sel.add(new Option(i, i));
+  sel.value = players.length;
+  const box = $('pl'); box.innerHTML = '';
+  players.forEach((p, i) => {
+    const row = document.createElement('div'); row.className = 'p';
+    const inp = document.createElement('input');
+    inp.id = 'player-' + i; inp.value = p.name; inp.setAttribute('aria-label', 'Имя игрока ' + (i + 1));
+    inp.oninput = () => { p.name = inp.value; renderStrip(); };
+    const del = document.createElement('button');
+    del.textContent = '×'; del.title = 'Убрать игрока'; del.setAttribute('aria-label', 'Убрать игрока');
+    del.onclick = () => {
+      if (players.length < 2) return;
+      players.splice(i, 1);
+      if (pi >= players.length) pi = 0;
+      renderPlayersPanel(); renderStrip();
+    };
+    row.append(inp, del); box.append(row);
+  });
+}
+
+function renderKbd() {
+  const k = $('kbd'); k.innerHTML = '';
+  ALPHA.forEach(l => {
+    const b = document.createElement('button');
+    b.className = 'key' + (hits.has(l) ? ' hit' : '') + (misses.has(l) ? ' miss' : '');
+    b.textContent = l; b.dataset.k = l;
+    b.disabled = hits.has(l) || misses.has(l) || solved || cur < 0;
+    b.onclick = () => pick(l);
+    k.append(b);
+  });
+}
+
+function renderQuestion() {
+  const q = $('question'); q.innerHTML = '';
+  if (cur < 0) { q.textContent = 'Выберите слово в панели ведущего.'; return; }
+  const w = words[cur], box = document.createElement('div'); box.className = 'txt';
+  const num = document.createElement('span'); num.className = 'num';
+  const letters = [...w.word].filter(c => /[А-ЯЁ]/.test(c)).length;
+  num.textContent = 'Слово № ' + w.n;
+  const t = document.createElement('span');
+  if ($('readDesc').checked && w.desc) t.textContent = w.desc;
+  else t.textContent = letters + ' ' + (letters % 10 === 1 && letters !== 11 ? 'буква' : (letters % 10 >= 2 && letters % 10 <= 4 && (letters < 12 || letters > 14) ? 'буквы' : 'букв'));
+  box.append(num, t); q.append(box);
+  if ($('readDesc').checked && w.desc && 'speechSynthesis' in window) {
+    const s = document.createElement('button');
+    s.className = 'btn small'; s.textContent = 'Озвучить'; s.onclick = speak; q.append(s);
+  }
+}
+
+function speak() {
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(words[cur].desc); u.lang = 'ru-RU';
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+function renderBoard() {
+  const b = $('board'); b.innerHTML = '';
+  if (cur < 0) return;
+  words[cur].word.split(' ').forEach(g => {
+    const row = document.createElement('div'); row.className = 'group';
+    [...g].forEach(ch => {
+      if (ch === '-') { const d = document.createElement('div'); d.className = 'dash'; d.textContent = '–'; row.append(d); return; }
+      const t = document.createElement('div');
+      t.className = 'tile' + (opened.has(norm(ch)) ? ' open' : '');
+      t.dataset.l = norm(ch);
+      t.innerHTML = '<div class="in"><div class="face front"></div><div class="face back"></div></div>';
+      t.querySelector('.back').textContent = ch;
+      row.append(t);
+    });
+    b.append(row);
+  });
+  fit();
+}
+
+function fit() {
+  if (cur < 0) return;
+  const b = $('board'), avail = b.clientWidth || 600;
+  const max = Math.max(...words[cur].word.split(' ').map(g => g.length));
+  const size = Math.max(24, Math.min(80, Math.floor((avail - (max - 1) * 6) / max)));
+  b.style.setProperty('--t', size + 'px');
+}
+
+function renderSecret() {
+  const s = $('secret'); s.innerHTML = '';
+  if (cur < 0) return;
+  const w = document.createElement('div'); w.className = 'w'; w.textContent = words[cur].word;
+  const d = document.createElement('div'); d.className = 'd'; d.textContent = words[cur].desc || 'Описание не указано.';
+  s.append(w, d);
+}
+
+function renderList() {
+  const ul = $('wl'); ul.innerHTML = '';
+  words.forEach((w, i) => {
+    const li = document.createElement('li');
+    li.className = (i === cur ? 'cur ' : '') + (played.has(i) ? 'done' : '');
+    const b = document.createElement('button');
+    b.innerHTML = '<span class="n"></span><span class="t"></span>';
+    b.querySelector('.n').textContent = w.n;
+    b.querySelector('.t').textContent = w.word;
+    b.onclick = () => selectWord(i);
+    li.append(b); ul.append(li);
+  });
+  $('fileNote').textContent = 'Источник: ' + sourceName + ' · слов: ' + words.length;
+}
+
+function updateNote() {
+  $('readNote').textContent = $('readDesc').checked
+    ? 'Описание показано на табло, его можно озвучить.'
+    : 'На табло только номер и число букв. Описание видно ведущему в блоке «Загадано».';
+}
+
+function selectWord(i) {
+  cur = i; opened = new Set(); hits = new Set(); misses = new Set(); solved = false;
+  $('modal').hidden = true;
+  say('Назовите букву.', '');
+  renderBoard(); renderKbd(); renderQuestion(); renderSecret(); renderList();
+}
+
+function nextPlayer() { pi = (pi + 1) % players.length; renderStrip(); }
+
+function lettersLeft() {
+  return [...words[cur].word].filter(c => /[А-ЯЁ]/.test(c) && !opened.has(norm(c))).length;
+}
+
+function pick(raw) {
+  if (cur < 0 || solved) return;
+  const l = norm(raw);
+  if (!ALPHA.includes(l) || hits.has(l) || misses.has(l)) return;
+  spin += 137; $('drum').style.transform = 'rotate(' + spin + 'deg)';
+  const n = [...words[cur].word].filter(c => norm(c) === l).length;
+  if (n) {
+    hits.add(l); opened.add(l);
+    let k = 0;
+    document.querySelectorAll('.tile').forEach(t => {
+      if (t.dataset.l === l) { t.style.setProperty('--d', (k++ * 0.18) + 's'); t.classList.add('open'); }
+    });
+    players[pi].score += n * 100;
+    say('Есть буква «' + l + '», ' + times(n) + '! +' + n * 100, 'ok');
+    renderKbd(); renderStrip();
+    if (lettersLeft() === 0) win();
+  } else {
+    misses.add(l);
+    nextPlayer();
+    say('Буквы «' + l + '» нет. Ход переходит: ' + (players[pi].name || 'следующий игрок'), 'bad');
+    renderKbd();
+  }
+}
+
+function guessRight() {
+  if (cur < 0 || solved) return;
+  players[pi].score += lettersLeft() * 100 + 500;
+  opened = new Set([...words[cur].word].map(norm));
+  let k = 0;
+  document.querySelectorAll('.tile:not(.open)').forEach(t => { t.style.setProperty('--d', (k++ * 0.12) + 's'); t.classList.add('open'); });
+  renderStrip();
+  win();
+}
+
+function guessWrong() {
+  if (cur < 0 || solved) return;
+  nextPlayer();
+  say('Слово названо неверно. Ход переходит: ' + (players[pi].name || 'следующий игрок'), 'bad');
+}
+
+function win() {
+  solved = true; played.add(cur); renderKbd(); renderList();
+  const p = players[pi], w = words[cur];
+  setTimeout(() => {
+    $('winTitle').textContent = 'Поздравляем, ' + (p.name || 'игрок') + '!';
+    $('winWord').textContent = w.word;
+    $('winDesc').textContent = w.desc;
+    $('winScore').textContent = 'Очки: ' + p.score;
+    $('modal').hidden = false;
+    $('btnNext').focus();
+    confetti();
+  }, 1000);
+}
+
+function nextWord() {
+  let i = cur;
+  for (let s = 1; s <= words.length; s++) {
+    const j = (cur + s) % words.length;
+    if (!played.has(j)) { i = j; break; }
+  }
+  selectWord(i);
+}
+
+function randomWord() {
+  const left = words.map((_, i) => i).filter(i => !played.has(i) && i !== cur);
+  const pool = left.length ? left : words.map((_, i) => i);
+  selectWord(pool[Math.floor(Math.random() * pool.length)]);
+}
+
+function setWords(list, name) {
+  words = list; played = new Set(); sourceName = name;
+  selectWord(0);
+}
+
+function confetti() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const c = $('confetti'), x = c.getContext('2d');
+  c.width = innerWidth; c.height = innerHeight;
+  const cols = ['#f5b800', '#fff6dc', '#47d49a', '#ff7a7a', '#6aa8ff'];
+  const ps = Array.from({ length: 160 }, () => ({
+    x: Math.random() * c.width, y: -20 - Math.random() * c.height * .5,
+    w: 6 + Math.random() * 8, h: 10 + Math.random() * 10,
+    vy: 2 + Math.random() * 4, vx: -1.5 + Math.random() * 3,
+    r: Math.random() * 6, vr: -.2 + Math.random() * .4,
+    col: cols[Math.floor(Math.random() * cols.length)]
+  }));
+  let frames = 0;
+  (function loop() {
+    x.clearRect(0, 0, c.width, c.height);
+    ps.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.r += p.vr;
+      x.save(); x.translate(p.x, p.y); x.rotate(p.r); x.fillStyle = p.col; x.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); x.restore();
+    });
+    if (++frames < 260) requestAnimationFrame(loop); else x.clearRect(0, 0, c.width, c.height);
+  })();
+}
+
+$('readDesc').onchange = () => { updateNote(); renderQuestion(); };
+$('btnRight').onclick = guessRight;
+$('btnWrong').onclick = guessWrong;
+$('btnSkip').onclick = () => { if (!solved) { nextPlayer(); say('Ход: ' + (players[pi].name || 'следующий игрок'), ''); } };
+$('btnRandom').onclick = randomWord;
+$('btnNext').onclick = nextWord;
+$('btnClose').onclick = () => { $('modal').hidden = true; };
+$('pcount').onchange = e => setPlayerCount(+e.target.value);
+$('btnAddP').onclick = () => { if (players.length < 8) setPlayerCount(players.length + 1); };
+$('btnReset').onclick = () => { players.forEach(p => p.score = 0); renderStrip(); };
+$('btnShow').onclick = () => { document.body.classList.add('show'); setTimeout(fit, 50); };
+$('btnHost').onclick = () => { document.body.classList.remove('show'); setTimeout(fit, 50); };
+$('fileBtn').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('fileIn').click(); } };
+$('fileIn').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const list = parseWords(await f.text());
+  if (!list.length) { $('fileNote').textContent = 'В файле не нашлось слов. Нужен формат: номер|СЛОВО|описание.'; return; }
+  setWords(list, f.name);
+};
+
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input,textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'Escape') { $('modal').hidden = true; return; }
+  let k = e.key.toLowerCase();
+  if (k.length !== 1) return;
+  const i = LAT.indexOf(k); if (i >= 0) k = CYR[i];
+  pick(k);
+});
+addEventListener('resize', fit);
+
+updateNote();
+renderPlayersPanel();
+renderStrip();
+setWords(parseWords(DEFAULT_TEXT), 'встроенный список');
+</script>
+
+</body></html>
